@@ -18,6 +18,21 @@ typedef struct urlinfo_t {
   char *path;
 } urlinfo_t;
 
+urlinfo_t *create_urlinfo(char *hostname, char *port, char *path) {
+  urlinfo_t *urlinfo = malloc(sizeof(urlinfo_t));
+  urlinfo->hostname = strdup(hostname);
+  urlinfo->port = strdup(port == NULL ? "" : port);
+  urlinfo->path = strdup(path == NULL ? "" : path);
+  return urlinfo;
+}
+
+void free_urlinfo(urlinfo_t *urlinfo) {
+  free(urlinfo->hostname);
+  free(urlinfo->port);
+  free(urlinfo->path);
+  free(urlinfo);
+}
+
 /**
  * Tokenize the given URL into hostname, path, and port.
  *
@@ -28,11 +43,8 @@ typedef struct urlinfo_t {
 urlinfo_t *parse_url(char *url)
 {
   // copy the input URL so as not to mutate the original
-  char *hostname = strdup(url);
-  char *port;
-  char *path;
-
-  urlinfo_t *urlinfo = malloc(sizeof(urlinfo_t));
+  char *hostname = strdup(url), *port, *path;
+  int tmp;
 
   /*
     We can parse the input URL by doing the following:
@@ -44,10 +56,21 @@ urlinfo_t *parse_url(char *url)
     5. Set the port pointer to 1 character after the spot returned by strchr.
     6. Overwrite the colon with a '\0' so that we are just left with the hostname.
   */
+  path = strchr(hostname, '/');
+  if (path == NULL)
+    fprintf(stderr, "Path not found!");
+  else
+    *path++ = '\0';
 
-  ///////////////////
-  // IMPLEMENT ME! //
-  ///////////////////
+  port = strchr(hostname, ':');
+  if (port == NULL)
+    fprintf(stderr, "Port not found!");
+  else
+    *port++ = '\0';
+  
+  urlinfo_t *urlinfo = create_urlinfo(hostname, port, path);
+
+  free(hostname);
 
   return urlinfo;
 }
@@ -93,9 +116,18 @@ int main(int argc, char *argv[])
     5. Clean up any allocated memory and open file descriptors.
   */
 
-  ///////////////////
-  // IMPLEMENT ME! //
-  ///////////////////
+  urlinfo_t *urlinfo = parse_url(argv[1]);
+
+  printf(
+    "\nHostname: %s\n"
+    "Path: %s\n"
+    "Port: %s\n\n",
+    urlinfo->hostname,
+    urlinfo->path,
+    urlinfo->port
+  );
+
+  free_urlinfo(urlinfo);
 
   return 0;
 }
