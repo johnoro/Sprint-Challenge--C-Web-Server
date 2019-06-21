@@ -33,6 +33,10 @@ void free_urlinfo(urlinfo_t *urlinfo) {
   free(urlinfo);
 }
 
+int find_end_of(char *str, char *search) {
+  return strstr(str, search) ? strlen(search) : -1;
+}
+
 /**
  * Tokenize the given URL into hostname, path, and port.
  *
@@ -43,7 +47,13 @@ void free_urlinfo(urlinfo_t *urlinfo) {
 urlinfo_t *parse_url(char *url)
 {
   // copy the input URL so as not to mutate the original
-  char *hostname = strdup(url), *port, *path;
+  char *hostname = strdup(url), *port, *path, *host_strt = hostname;
+
+  int end = find_end_of(hostname, "https://");
+  if (end == -1)
+    end = find_end_of(hostname, "http://");
+  if (end != -1)
+    hostname += end;
 
   /*
     We can parse the input URL by doing the following:
@@ -56,20 +66,16 @@ urlinfo_t *parse_url(char *url)
     6. Overwrite the colon with a '\0' so that we are just left with the hostname.
   */
   path = strchr(hostname, '/');
-  if (path == NULL)
-    fprintf(stderr, "Path not found!\n");
-  else
+  if (path != NULL)
     *path++ = '\0';
 
   port = strchr(hostname, ':');
-  if (port == NULL)
-    fprintf(stderr, "Port not found!\n");
-  else
+  if (port != NULL)
     *port++ = '\0';
   
   urlinfo_t *urlinfo = create_urlinfo(hostname, port, path);
 
-  free(hostname);
+  free(host_strt);
 
   return urlinfo;
 }
