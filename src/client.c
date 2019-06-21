@@ -21,8 +21,8 @@ typedef struct urlinfo_t {
 urlinfo_t *create_urlinfo(char *hostname, char *port, char *path) {
   urlinfo_t *urlinfo = malloc(sizeof(urlinfo_t));
   urlinfo->hostname = strdup(hostname);
-  urlinfo->port = strdup(port == NULL ? "" : port);
-  urlinfo->path = strdup(path == NULL ? "" : path);
+  urlinfo->port = strdup(port == NULL ? "80" : port);
+  urlinfo->path = strdup(path == NULL ? " " : path);
   return urlinfo;
 }
 
@@ -44,7 +44,6 @@ urlinfo_t *parse_url(char *url)
 {
   // copy the input URL so as not to mutate the original
   char *hostname = strdup(url), *port, *path;
-  int tmp;
 
   /*
     We can parse the input URL by doing the following:
@@ -58,13 +57,13 @@ urlinfo_t *parse_url(char *url)
   */
   path = strchr(hostname, '/');
   if (path == NULL)
-    fprintf(stderr, "Path not found!");
+    fprintf(stderr, "Path not found!\n");
   else
     *path++ = '\0';
 
   port = strchr(hostname, ':');
   if (port == NULL)
-    fprintf(stderr, "Port not found!");
+    fprintf(stderr, "Port not found!\n");
   else
     *port++ = '\0';
   
@@ -85,17 +84,27 @@ urlinfo_t *parse_url(char *url)
  *
  * Return the value from the send() function.
 */
-int send_request(int fd, char *hostname, char *port, char *path)
+int send_request(int fd, urlinfo_t *urlinfo)
 {
   const int max_request_size = 16384;
   char request[max_request_size];
-  int rv;
 
-  ///////////////////
-  // IMPLEMENT ME! //
-  ///////////////////
+  size_t req_len = sprintf(
+    request,
+    "GET /%s HTTP/1.1\n"
+    "Host: %s:%s\n"
+    "Connection: close\n"
+    "\n",
+    urlinfo->path,
+    urlinfo->hostname,
+    urlinfo->port
+  );
 
-  return 0;
+  int rv = send(fd, request, req_len, 0);
+  if (rv < 0)
+    perror("send");
+
+  return rv;
 }
 
 int main(int argc, char *argv[])
@@ -127,7 +136,17 @@ int main(int argc, char *argv[])
     urlinfo->port
   );
 
+  sockfd = get_socket(urlinfo->hostname, urlinfo->port);
+
+  send_request(sockfd, urlinfo);
+
+  while ((numbytes = recv(sockfd, buf, BUFSIZE-1, 0)) > 0)
+    fwrite(buf, sizeof(char), numbytes, stdout);
+
+  fprintf(stdout, "\n");
+
   free_urlinfo(urlinfo);
+  close(sockfd);
 
   return 0;
 }
