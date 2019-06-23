@@ -18,6 +18,25 @@ typedef struct urlinfo_t {
   char *path;
 } urlinfo_t;
 
+urlinfo_t *create_urlinfo(char *hostname, char *port, char *path) {
+  urlinfo_t *urlinfo = malloc(sizeof(urlinfo_t));
+  urlinfo->hostname = strdup(hostname);
+  urlinfo->port = strdup(port == NULL ? "80" : port);
+  urlinfo->path = strdup(path == NULL ? " " : path);
+  return urlinfo;
+}
+
+void free_urlinfo(urlinfo_t *urlinfo) {
+  free(urlinfo->hostname);
+  free(urlinfo->port);
+  free(urlinfo->path);
+  free(urlinfo);
+}
+
+int find_end_of(char *str, char *search) {
+  return strstr(str, search) ? strlen(search) : -1;
+}
+
 /**
  * Tokenize the given URL into hostname, path, and port.
  *
@@ -28,11 +47,13 @@ typedef struct urlinfo_t {
 urlinfo_t *parse_url(char *url)
 {
   // copy the input URL so as not to mutate the original
-  char *hostname = strdup(url);
-  char *port;
-  char *path;
+  char *hostname = strdup(url), *port, *path, *host_strt = hostname;
 
-  urlinfo_t *urlinfo = malloc(sizeof(urlinfo_t));
+  int end = find_end_of(hostname, "https://");
+  if (end == -1)
+    end = find_end_of(hostname, "http://");
+  if (end != -1)
+    hostname += end;
 
   /*
     We can parse the input URL by doing the following:
@@ -44,10 +65,17 @@ urlinfo_t *parse_url(char *url)
     5. Set the port pointer to 1 character after the spot returned by strchr.
     6. Overwrite the colon with a '\0' so that we are just left with the hostname.
   */
+  path = strchr(hostname, '/');
+  if (path != NULL)
+    *path++ = '\0';
 
-  ///////////////////
-  // IMPLEMENT ME! //
-  ///////////////////
+  port = strchr(hostname, ':');
+  if (port != NULL)
+    *port++ = '\0';
+  
+  urlinfo_t *urlinfo = create_urlinfo(hostname, port, path);
+
+  free(host_strt);
 
   return urlinfo;
 }
@@ -62,17 +90,27 @@ urlinfo_t *parse_url(char *url)
  *
  * Return the value from the send() function.
 */
-int send_request(int fd, char *hostname, char *port, char *path)
+int send_request(int fd, urlinfo_t *urlinfo)
 {
   const int max_request_size = 16384;
   char request[max_request_size];
-  int rv;
 
-  ///////////////////
-  // IMPLEMENT ME! //
-  ///////////////////
+  size_t req_len = sprintf(
+    request,
+    "GET /%s HTTP/1.1\n"
+    "Host: %s:%s\n"
+    "Connection: close\n"
+    "\n",
+    urlinfo->path,
+    urlinfo->hostname,
+    urlinfo->port
+  );
 
-  return 0;
+  int rv = send(fd, request, req_len, 0);
+  if (rv < 0)
+    perror("send");
+
+  return rv;
 }
 
 int main(int argc, char *argv[])
@@ -93,9 +131,28 @@ int main(int argc, char *argv[])
     5. Clean up any allocated memory and open file descriptors.
   */
 
-  ///////////////////
-  // IMPLEMENT ME! //
-  ///////////////////
+  urlinfo_t *urlinfo = parse_url(argv[1]);
+
+  printf(
+    "\nHostname: %s\n"
+    "Path: %s\n"
+    "Port: %s\n\n",
+    urlinfo->hostname,
+    urlinfo->path,
+    urlinfo->port
+  );
+
+  sockfd = get_socket(urlinfo->hostname, urlinfo->port);
+
+  send_request(sockfd, urlinfo);
+
+  while ((numbytes = recv(sockfd, buf, BUFSIZE-1, 0)) > 0)
+    fwrite(buf, sizeof(char), numbytes, stdout);
+
+  fprintf(stdout, "\n");
+
+  free_urlinfo(urlinfo);
+  close(sockfd);
 
   return 0;
 }
